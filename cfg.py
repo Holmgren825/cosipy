@@ -10,7 +10,8 @@ def init_config():
     # Read in the config.cfg file as an config object.
     cp = ConfigObj('./config.cfg')
 
-    # Deep copy to a dict. strings are in the correct format, have to cast others.
+    # Deep copy to a dict. strings are in the correct format, have to cast
+    # others.
     config = cp.dict()
 
     # Set bools
@@ -34,29 +35,51 @@ def init_config():
 
     # We do the logic here instead of in the config. Would be nice if this was
     # updated if a user later changes WRF. Requires an ordered dict, see OGGM
-    # cfg.py 
+    # cfg.py. Basically an class extended from ordered dicts.
+
     # Change coordinates if WRF
     if config['WRF']:
-        config['northing'] = 'south_north'                                # name of dimension in WRF in- and output
-        config['easting'] = 'west_east'                                   # name of dimension in WRF in- and output
+        # name of dimension in WRF in- and output
+        config['northing'] = 'south_north'
+        # name of dimension in WRF in- and output
+        config['easting'] = 'west_east'
 
     if config['WRF_X_CSPY']:
         config['full_field'] = True
 
-
     config['time_start_str'] = config['time_start'][0:10].replace('-', '')
     config['time_end_str'] = config['time_end'][0:10].replace('-', '')
     config['output_netcdf'] = 'Zhadang_ERA5_' + config['time_start_str'] +\
-                            '-' + config['time_end_str'] + '.nc'
+                              '-' + config['time_end_str'] + '.nc'
 
     return config
 
 
-def init_constants():
+def init_constants(config):
     # Parse the constants.cfg file into a dictionary. Casts necessary variables
     # into the correct types.
-    return
+    cp = ConfigObj('./constants.cfg')
+    # Create a dict out of the configobj
+    constants = cp.dict()
+    # We try and cast all values to floats
+    for key, value in constants.items():
+        try:
+            constants[key] = float(value)
+        # If it doesn't work, we keep the original i.e. a string. This works
+        # because constants.cfg only contains strings and numbers.
+        except TypeError:
+            pass
+        except ValueError:
+            pass
+
+    # Some changes if using wrf. As for config, would be nice if this changed
+    # automatically if changed during runtime.
+    if config['WRF_X_CSPY']:
+        constants['stability_correction'] = 'MO'
+        constants['sfc_temperature_method'] = 'Newton'
+
+    return constants
 
 
 config = init_config()
-constants = init_constants()
+constants = init_constants(config)
