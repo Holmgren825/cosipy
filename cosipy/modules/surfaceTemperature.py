@@ -1,13 +1,10 @@
 import numpy as np
-from constants import sfc_temperature_method, saturation_water_vapour_method, zero_temperature, \
-                      lat_heat_sublimation, lat_heat_vaporize, stability_correction, spec_heat_air, \
-                      spec_heat_water, water_density, surface_emission_coeff, sigma, zlt1, zlt2
 from scipy.optimize import minimize, newton
 from numba import njit
 from types import SimpleNamespace
 
 
-def update_surface_temperature(GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, SLOPE, LWin=None, N=None):
+def update_surface_temperature(GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, SLOPE, NAMELIST, LWin=None, N=None):
     """ This methods updates the surface temperature and returns the surface fluxes
 
     Given:
@@ -25,6 +22,7 @@ def update_surface_temperature(GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, 
         u2      ::  Wind velocity [m S^-1]
         RAIN    ::  RAIN (mm)
         SLOPE   ::  Slope of the surface [degree]
+        NAMELIST::  NAMELIST with constants
         LWin    ::  Incoming longwave radiation [W m^-2]
         N       ::  Fractional cloud cover [-]
 
@@ -47,8 +45,11 @@ def update_surface_temperature(GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, 
         phi     ::  Stability correction term [-]
     """
     
+    # Unpack what we need from the namelist.
+    sfc_temperature_method = NAMELIST['sfc_temperature_method']
+    zero_temperature = NAMELIST['zero_temperature']
     #Interpolate subsurface temperatures to selected subsurface depths for GHF computation
-    B_Ts = interp_subT(GRID)
+    B_Ts = interp_subT(GRID, NAMELIST)
     
     #Update surface temperature
     lower_bnd_ts = 220.
@@ -57,12 +58,12 @@ def update_surface_temperature(GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, 
         # Get surface temperature by minimizing the energy balance function (SWnet+Li+Lo+H+L=0)
         res = minimize(eb_optim, GRID.get_node_temperature(0), method=sfc_temperature_method,
                        bounds=((lower_bnd_ts, zero_temperature),),tol=1e-2,
-                       args=(GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, SLOPE, B_Ts, LWin, N))
+                       args=(GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, SLOPE, B_Ts, NAMELIST, LWin, N))
 		       
     elif sfc_temperature_method == 'Newton':
         try:
             res = newton(eb_optim, np.array([GRID.get_node_temperature(0)]), tol=1e-2, maxiter=50,
-                        args=(GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, SLOPE, B_Ts, LWin, N))
+                        args=(GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, SLOPE, B_Ts, NAMELIST, LWin, N))
             if res < lower_bnd_ts:
                 raise ValueError("TS Solution is out of bounds")
             res = SimpleNamespace(**{'x':min(np.array([zero_temperature]),res),'fun':None})
@@ -71,7 +72,7 @@ def update_surface_temperature(GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, 
              #Workaround for non-convergence and unboundedness
              res = minimize(eb_optim, GRID.get_node_temperature(0), method='SLSQP',
                        bounds=((lower_bnd_ts, zero_temperature),),tol=1e-2,
-                       args=(GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, SLOPE, B_Ts, LWin, N))
+                       args=(GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, SLOPE, B_Ts, NAMELIST, LWin, N))
     else:
         print('Invalid method for minimizing the residual')
 
@@ -80,7 +81,7 @@ def update_surface_temperature(GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, 
  
     (Li, Lo, H, L, B, Qrr, SWnet, rho, Lv, MOL, Cs_t, Cs_q, q0, q2) = eb_fluxes(GRID, res.x, dt, alpha, 
                                                              z, z0, T2, rH2, p, G, u2, RAIN, SLOPE, 
-                                                             B_Ts, LWin, N,)
+                                                             B_Ts, NAMELIST, LWin, N,)
      
     # Consistency check
     if (float(res.x)>zero_temperature) or (float(res.x)<lower_bnd_ts):
@@ -91,9 +92,12 @@ def update_surface_temperature(GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, 
 
 
 @njit
-def interp_subT(GRID):
+def interp_subT(GRID, NAMELIST):
     ''' Interpolate subsurface temperature to depths used for ground heat flux computation'''
     
+    # Unpack the namelist
+    zlt1 = NAMELIST['zlt1']
+    zlt2 = NAMELIST['zlt2']
     # Cumulative layer depths
     layer_heights_cum = np.cumsum(np.array(GRID.get_height()))
 
@@ -126,7 +130,7 @@ def interp_subT(GRID):
     
 
 @njit
-def eb_fluxes(GRID, T0, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, SLOPE, B_Ts, LWin=None, N=None):
+def eb_fluxes(GRID, T0, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, SLOPE, B_Ts, NAMELIST, LWin=None, N=None):
     ''' This functions returns the surface fluxes with Monin-Obukhov stability correction.
 
     Given:
@@ -144,6 +148,7 @@ def eb_fluxes(GRID, T0, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, SLOPE, B_Ts, 
         u2      ::  Wind velocity [m S^-1]
         RAIN    ::  RAIN (mm)
         SLOPE   ::  Slope of the surface [degree]
+        NAMELIST::  Dict with constants
         LWin    ::  Incoming longwave radiation [W m^-2]
         N       ::  Fractional cloud cover [-]
 
@@ -166,6 +171,19 @@ def eb_fluxes(GRID, T0, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, SLOPE, B_Ts, 
         phi     ::  Stability correction term [-]
     '''
 
+    # Unpack the namelist
+    saturation_water_vapour_method = NAMELIST['saturation_water_vapour_method']
+    zero_temperature = NAMELIST['zero_temperature']
+    lat_heat_sublimation = NAMELIST['lat_heat_sublimation']
+    lat_heat_vaporize = NAMELIST['lat_heat_vaporize']
+    stability_correction = NAMELIST['stability_correction']
+    spec_heat_air = NAMELIST['spec_heat_air']
+    water_density = NAMELIST['water_density']
+    spec_heat_water = NAMELIST['spec_heat_water']
+    surface_emission_coeff = NAMELIST['surface_emission_coeff']
+    sigma = NAMELIST['sigma']
+    zlt1 = NAMELIST['zlt1']
+    zlt2 = NAMELIST['zlt2']
     # Saturation vapour pressure (hPa)
     if saturation_water_vapour_method == 'Sonntag90':
         Ew = method_EW_Sonntag(T2)
@@ -347,12 +365,14 @@ def MO(rho, ust, T2, H):
         return 0.0
 
 @njit
-def eb_optim(T0, GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, SLOPE, B_Ts, LWin=None, N=None):
+def eb_optim(T0, GRID, dt, alpha, z, z0, T2, rH2, p, G, u2, RAIN, SLOPE, B_Ts, NAMELIST, LWin=None, N=None):
     ''' Optimization function to solve for surface temperature T0 '''
 
+    # Unpack what we need from the namelist
+    sfc_temperature_method = NAMELIST['sfc_temperature_method']
     # Get surface fluxes for surface temperature T0
     (Li,Lo,H,L,B,Qrr, SWnet,rho,Lv,MOL,Cs_t,Cs_q,q0,q2) = eb_fluxes(GRID, T0, dt, alpha, z, z0, T2, rH2, p, G,
-                                                               u2, RAIN, SLOPE, B_Ts, LWin, N)
+                                                               u2, RAIN, SLOPE, B_Ts, NAMELIST, LWin, N)
 
     # Return the residual (is minimized by the optimization function)
     if sfc_temperature_method == 'Newton':
