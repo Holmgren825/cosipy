@@ -1,4 +1,3 @@
-from constants import *
 import numpy as np
 
 from collections import OrderedDict
@@ -37,17 +36,30 @@ class Node:
 
     """
 
-    def __init__(self, height, snow_density, temperature, liquid_water_content, ice_fraction=None):
+    def __init__(self, height, snow_density, temperature, liquid_water_content, NAMELIST, ice_fraction=None):
 
         # Initialize state variables 
         self.height = height
         self.temperature = temperature
         self.liquid_water_content = liquid_water_content
+        # Unpack what we need from the namelist.
+        self.thermal_conductivity_method =\
+            NAMELIST['thermal_conductivity_method']
+        self.spec_heat_air = NAMELIST['spec_heat_air']
+        self.spec_heat_ice = NAMELIST['spec_heat_ice']
+        self.spec_heat_water = NAMELIST['spec_heat_water']
+        self.k_i = NAMELIST['k_i']
+        self.k_w = NAMELIST['k_w']
+        self.k_a = NAMELIST['k_a']
+        self.water_density = NAMELIST['water_density']
+        self.ice_density = NAMELIST['ice_density']
+        self.air_density = NAMELIST['air_density']
+        self.zero_temperature = NAMELIST['zero_temperature']
         
         if ice_fraction is None:
             # Remove weight of air from density
-            a = snow_density - (1-(snow_density/ice_density))*air_density
-            self.ice_fraction = a/ice_density
+            a = snow_density - (1-(snow_density/self.ice_density))*self.air_density
+            self.ice_fraction = a/self.ice_density
         else:
             self.ice_fraction = ice_fraction
 
@@ -111,7 +123,7 @@ class Node:
             rho : float
                 Snow density [:math:`kg~m^{-3}`]
         """
-        return self.get_layer_ice_fraction()*ice_density + self.get_layer_liquid_water_content()*water_density + self.get_layer_air_porosity()*air_density
+        return self.get_layer_ice_fraction()*self.ice_density + self.get_layer_liquid_water_content()*self.water_density + self.get_layer_air_porosity()*self.air_density
     
     def get_layer_air_porosity(self):
         """ Returnis the ice fraction of the node.
@@ -131,7 +143,7 @@ class Node:
             cp : float
                 Specific heat [:math:`J~kg^{-1}~K^{-1}`]
         """
-        return self.get_layer_ice_fraction()*spec_heat_ice + self.get_layer_air_porosity()*spec_heat_air + self.get_layer_liquid_water_content()*spec_heat_water
+        return self.get_layer_ice_fraction()*self.spec_heat_ice + self.get_layer_air_porosity()*self.spec_heat_air + self.get_layer_liquid_water_content()*self.spec_heat_water
 
     def get_layer_liquid_water_content(self):
         """ Returns the liquid water content of the node.
@@ -167,7 +179,7 @@ class Node:
             cc : float
                 Cold content [:math:`J~m^{-2}`]
         """
-        return -self.get_layer_specific_heat() * self.get_layer_density() * self.get_layer_height() * (self.get_layer_temperature()-zero_temperature)
+        return -self.get_layer_specific_heat() * self.get_layer_density() * self.get_layer_height() * (self.get_layer_temperature()-self.zero_temperature)
     
     def get_layer_porosity(self):
         """ Returns the porosity of the node. 
@@ -188,12 +200,12 @@ class Node:
                 Thermal conductivity [:math:`W~m^{-1}~K^{-1}`]
         """
         methods_allowed = ['bulk', 'empirical']
-        if thermal_conductivity_method == 'bulk':
-            lam = self.get_layer_ice_fraction()*k_i + self.get_layer_air_porosity()*k_a + self.get_layer_liquid_water_content()*k_w
-        elif thermal_conductivity_method == 'empirical':
+        if self.thermal_conductivity_method == 'bulk':
+            lam = self.get_layer_ice_fraction()*self.k_i + self.get_layer_air_porosity()*self.k_a + self.get_layer_liquid_water_content()*self.k_w
+        elif self.thermal_conductivity_method == 'empirical':
             lam = 0.021 + 2.5 * np.power((self.get_layer_density()/1000),2)
         else:
-            raise ValueError("Thermal conductivity method = \"{:s}\" is not allowed, must be one of {:s}".format(thermal_conductivity_method, ", ".join(methods_allowed)))
+            raise ValueError("Thermal conductivity method = \"{:s}\" is not allowed, must be one of {:s}".format(self.thermal_conductivity_method, ", ".join(methods_allowed)))
         return lam
 
     def get_layer_thermal_diffusivity(self):

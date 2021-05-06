@@ -23,8 +23,8 @@ spec['grid'] = types.ListType(node_type)
 @jitclass(spec)
 class Grid:
 
-    def __init__(self,layer_heights, layer_densities, layer_temperatures, layer_liquid_water_content, layer_ice_fraction=None,
-        new_snow_height=None, new_snow_timestamp=None, old_snow_timestamp=None, NAMELIST):
+    def __init__(self,layer_heights, layer_densities, layer_temperatures, layer_liquid_water_content, NAMELIST, layer_ice_fraction=None,
+        new_snow_height=None, new_snow_timestamp=None, old_snow_timestamp=None):
         """ The Grid-class controls the numerical mesh. 
         
         The grid consists of a list of nodes (layers) that store the information 

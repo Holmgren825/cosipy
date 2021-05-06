@@ -14,7 +14,7 @@ import configparser
 
 class IOClass:
 
-    def __init__(self, DATA=None, NAMELIST):
+    def __init__(self, NAMELIST, DATA=None):
         """ Init IO Class"""
 
         # Read variable list from file
