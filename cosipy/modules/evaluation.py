@@ -1,12 +1,11 @@
 import numpy as np
-from config import eval_method, obs_type
 
 
-def evaluate(stake_names, stake_data, df_):
+def evaluate(stake_names, stake_data, df_, NAMELIST):
     """ This methods evaluates the simulation with the stake measurements
         stake_name  ::  """
 
-    if eval_method == 'rmse':
+    if NAMELIST['eval_method'] == 'rmse':
         stat = rmse(stake_names, stake_data, df_)
     else:
         stat = None
@@ -14,7 +13,9 @@ def evaluate(stake_names, stake_data, df_):
     return stat
 
 
-def rmse(stake_names, stake_data, df_):
+def rmse(stake_names, stake_data, df_, NAMELIST):
+
+    obs_type = NAMELIST['obs_type']
     if (obs_type=='mb'):
         rmse = ((stake_data[stake_names].subtract(df_['mb'],axis=0))**2).mean()**.5
     if (obs_type=='snowheight'):
