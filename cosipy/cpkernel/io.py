@@ -10,13 +10,11 @@ import numpy as np
 import time
 from datetime import timedelta
 from cosipy.modules.radCor import correctRadiation
-from constants import *
-from config import * 
 import configparser
 
 class IOClass:
 
-    def __init__(self, DATA=None):
+    def __init__(self, DATA=None, NAMELIST):
         """ Init IO Class"""
 
         # Read variable list from file
@@ -25,6 +23,89 @@ class IOClass:
         self.atm = config['vars']['atm']
         self.internal = config['vars']['internal']
         self.full = config['vars']['full']
+
+        # Unpack the namelist to class variables.
+        self.time_start = NAMELIST['time_start']
+        self.time_end = NAMELIST['time_end']
+        self.data_path = NAMELIST['data_path']
+        self.restart = NAMELIST['restart']
+        self.stake_evaluation = NAMELIST['stake_evaluation']
+        self.WRF = NAMELIST['WRF']
+        self.northing = NAMELIST['northing']
+        self.easting = NAMELIST['easting']
+        self.compression_level = NAMELIST['compression_level']
+        self.slurm_use = NAMELIST['slurm_use']
+        self.full_field = NAMELIST['full_field']
+        self.force_use_TP = NAMELIST['force_use_TP']
+        self.force_use_N = NAMELIST['force_use_N']
+        self.tile = NAMELIST['tile']
+        self.xstart = NAMELIST['xstart']
+        self.xend = NAMELIST['xend']
+        self.ystart = NAMELIST['ystart']
+        self.yend = NAMELIST['yend']
+        self.dt = NAMELIST['dt']
+        self.max_layers = NAMELIST['max_layers']
+        self.z = NAMELIST['z']
+        self.stability_correction = NAMELIST['stability_correction']
+        self.albedo_method = NAMELIST['albedo_method']
+        self.densification_method = NAMELIST['densification_method']
+        self.penetrating_method = NAMELIST['penetrating_method']
+        self.roughness_method = NAMELIST['roughness_method']
+        self.saturation_water_vapour_method =\
+            NAMELIST['saturation_water_vapour_method']
+        self.initial_snowheight_constant =\
+            NAMELIST['initial_snowheight_constant']
+        self.initial_snow_layer_heights =\
+            NAMELIST['initial_snow_layer_heights']
+        self.initial_glacier_height = NAMELIST['initial_glacier_height']
+        self.initial_glacier_layer_heights =\
+            NAMELIST['initial_glacier_layer_heights']
+        self.initial_top_density_snowpack =\
+            NAMELIST['initial_top_density_snowpack']
+        self.initial_bottom_density_snowpack =\
+            NAMELIST['initial_bottom_density_snowpack']
+        self.temperature_bottom = NAMELIST['temperature_bottom']
+        self.const_init_temp = NAMELIST['const_init_temp']
+        self.center_snow_transfer_function =\
+            NAMELIST['center_snow_transfer_function']
+        self.spread_snow_transfer_function =\
+            NAMELIST['spread_snow_transfer_function']
+        self.mult_factor_RRR = NAMELIST['mult_factor_RRR']
+        self.minimum_snow_layer_height = NAMELIST['minimum_snow_layer_height']
+        self.minimum_snowfall = NAMELIST['minimum_snowfall']
+        self.remesh_method = NAMELIST['remesh_method']
+        self.first_layer_height = NAMELIST['first_layer_height']
+        self.layer_stretching = NAMELIST['layer_stretching']
+        self.merge_max = NAMELIST['merge_max']
+        self.density_threshold_merging = NAMELIST['density_threshold_merging']
+        self.temperature_threshold_merging =\
+            NAMELIST['temperature_threshold_merging']
+        self.constant_density = NAMELIST['constant_density']
+        self.albedo_fresh_snow = NAMELIST['albedo_fresh_snow']
+        self.albedo_firn = NAMELIST['albedo_firn']
+        self.albedo_ice = NAMELIST['albedo_ice']
+        self.albedo_mod_snow_aging = NAMELIST['albedo_mod_snow_aging']
+        self.albedo_mod_snow_depth = NAMELIST['albedo_mod_snow_depth']
+        self.roughness_fresh_snow = NAMELIST['roughness_fresh_snow']
+        self.roughness_ice = NAMELIST['roughness_ice']
+        self.roughness_firn = NAMELIST['roughness_firn']
+        self.aging_factor_roughness = NAMELIST['aging_factor_roughness']
+        self.snow_ice_threshold = NAMELIST['snow_ice_threshold']
+        self.lat_heat_melting = NAMELIST['lat_heat_melting']
+        self.lat_heat_vaporize = NAMELIST['lat_heat_vaporize']
+        self.lat_heat_sublimation = NAMELIST['lat_heat_sublimation']
+        self.spec_heat_air = NAMELIST['spec_heat_air']
+        self.spec_heat_ice = NAMELIST['spec_heat_ice']
+        self.spec_heat_water = NAMELIST['spec_heat_water']
+        self.k_i = NAMELIST['k_i']
+        self.k_w = NAMELIST['k_w']
+        self.k_a = NAMELIST['k_a']
+        self.water_density = NAMELIST['water_density']
+        self.ice_density = NAMELIST['ice_density']
+        self.air_density = NAMELIST['air_density']
+        self.sigma = NAMELIST['sigma']
+        self.zero_temperature = NAMELIST['zero_temperature']
+        self.surface_emission_coeff = NAMELIST['surface_emission_coeff']
 
         # Initialize data
         self.DATA = DATA
@@ -42,20 +123,20 @@ class IOClass:
     def create_data_file(self):
         """ Returns the DATA xarray dataset"""
     
-        if (restart==True):
+        if (self.restart==True):
             print('--------------------------------------------------------------')
             print('\t RESTART FROM PREVIOUS STATE')
             print('-------------------------------------------------------------- \n')
             
             # Load the restart file
-            timestamp = pd.to_datetime(time_start).strftime('%Y-%m-%dT%H-%M')
-            if (os.path.isfile(os.path.join(data_path, 'restart', 'restart_'+timestamp+'.nc')) & (time_start != time_end)):
-                self.GRID_RESTART = xr.open_dataset(os.path.join(data_path, 'restart', 'restart_'+timestamp+'.nc'))
-                self.restart_date = self.GRID_RESTART.time+np.timedelta64(dt,'s')     # Get time of the last calculation and add one time step
+            timestamp = pd.to_datetime(self.time_start).strftime('%Y-%m-%dT%H-%M')
+            if (os.path.isfile(os.path.join(self.data_path, 'restart', 'restart_'+timestamp+'.nc')) & (self.time_start != self.time_end)):
+                self.GRID_RESTART = xr.open_dataset(os.path.join(self.data_path, 'restart', 'restart_'+timestamp+'.nc'))
+                self.restart_date = self.GRID_RESTART.time+np.timedelta64(self.dt,'s')     # Get time of the last calculation and add one time step
                 self.init_data_dataset()                       # Read data from the last date to the end of the data file
             else:
                 print('No restart file available for the given date %s' % (timestamp))  # if there is a problem kill the program
-                print('OR start date %s equals end date %s \n' % (time_start, time_end))
+                print('OR start date %s equals end date %s \n' % (self.time_start, self.time_end))
                 sys.exit(1)
         else:
             self.restart_date = None
@@ -64,14 +145,14 @@ class IOClass:
         #----------------------------------------------
         # Tile the data is desired
         #----------------------------------------------
-        if tile:
-            if WRF:
-                self.DATA = self.DATA.isel(south_north=slice(ystart,yend), west_east=slice(xstart,xend))
+        if self.tile:
+            if self.WRF:
+                self.DATA = self.DATA.isel(south_north=slice(self.ystart,self.yend), west_east=slice(self.xstart,self.xend))
             else:
-                self.DATA = self.DATA.isel(lat=slice(ystart,yend), lon=slice(xstart,xend))
+                self.DATA = self.DATA.isel(lat=slice(self.ystart,self.yend), lon=slice(self.xstart,self.xend))
 
-        self.ny = self.DATA.dims[northing]
-        self.nx = self.DATA.dims[easting]
+        self.ny = self.DATA.dims[self.northing]
+        self.nx = self.DATA.dims[self.easting]
         self.time = self.DATA.dims['time']
 
         return self.DATA
@@ -132,7 +213,7 @@ class IOClass:
         """
     
         # Open input dataset
-        self.DATA = xr.open_dataset(os.path.join(data_path,'input',input_netcdf))
+        self.DATA = xr.open_dataset(os.path.join(self.data_path,'input',input_netcdf))
         self.DATA['time'] = np.sort(self.DATA['time'].values)
         start_interval=str(self.DATA.time.values[0])[0:16]
         end_interval = str(self.DATA.time.values[-1])[0:16]
@@ -142,24 +223,24 @@ class IOClass:
         # Check if restart option is set
         if self.restart_date is None:
             print('--------------------------------------------------------------')
-            print('\t Integration from %s to %s' % (time_start, time_end))
+            print('\t Integration from %s to %s' % (self.time_start, self.time_end))
             print('--------------------------------------------------------------\n')
-            self.DATA = self.DATA.sel(time=slice(time_start, time_end))   # Select dates from config.py
+            self.DATA = self.DATA.sel(time=slice(self.time_start, self.time_end))   # Select dates from config.py
         else:
             # There is nothing to do if the dates are equal
-            if (self.restart_date==time_end):
+            if (self.restart_date==self.time_end):
                 print('Start date equals end date ... no new data ... EXIT')
                 sys.exit(1)
             else:
                 # otherwise, run the model from the restart date to the defined end date
-                print('Starting from %s (from restart file) to %s (from config.py) \n' % (self.restart_date.values, time_end))
-                self.DATA = self.DATA.sel(time=slice(self.restart_date, time_end))
+                print('Starting from %s (from restart file) to %s (from config.py) \n' % (self.restart_date.values, self.time_end))
+                self.DATA = self.DATA.sel(time=slice(self.restart_date, self.time_end))
 
-        if time_start < start_interval:
+        if self.time_start < start_interval:
             print('\n WARNING! Selected startpoint before first timestep of input data\n')
-        if time_end > end_interval:
+        if self.time_end > end_interval:
             print('\n WARNING! Selected endpoint after last timestep of input data\n')
-        if time_start > end_interval or time_end < start_interval:
+        if self.time_start > end_interval or self.time_end < start_interval:
             print('\n ERROR! Selected period not available in input data\n')
 
 
@@ -229,77 +310,77 @@ class IOClass:
 
         # Global attributes from config.py
         self.RESULT.attrs['Start_from_restart_file'] = str(restart)
-        self.RESULT.attrs['Stake_evaluation'] = str(stake_evaluation)
-        self.RESULT.attrs['WRF_simulation'] = str(WRF)
-        self.RESULT.attrs['Compression_level'] = compression_level
-        self.RESULT.attrs['Slurm_use'] = str(slurm_use)
-        self.RESULT.attrs['Full_fiels'] = str(full_field)
-        self.RESULT.attrs['Force_use_TP'] = str(force_use_TP)
-        self.RESULT.attrs['Force_use_N'] = str(force_use_N)
-        self.RESULT.attrs['Tile_of_glacier_of_interest'] = str(tile)
+        self.RESULT.attrs['Stake_evaluation'] = str(self.stake_evaluation)
+        self.RESULT.attrs['WRF_simulation'] = str(self.WRF)
+        self.RESULT.attrs['Compression_level'] = self.compression_level
+        self.RESULT.attrs['Slurm_use'] = str(self.slurm_use)
+        self.RESULT.attrs['Full_fiels'] = str(self.full_field)
+        self.RESULT.attrs['Force_use_TP'] = str(self.force_use_TP)
+        self.RESULT.attrs['Force_use_N'] = str(self.force_use_N)
+        self.RESULT.attrs['Tile_of_glacier_of_interest'] = str(self.tile)
 
         # Global attributes from constants.py
-        self.RESULT.attrs['Time_step_input_file_seconds'] = dt
-        self.RESULT.attrs['Max_layers'] = max_layers
-        self.RESULT.attrs['Z_measurment_height'] = z
-        self.RESULT.attrs['Stability_correction'] = stability_correction
-        self.RESULT.attrs['Albedo_method'] = albedo_method
-        self.RESULT.attrs['Densification_method'] = densification_method
-        self.RESULT.attrs['Penetrating_method'] = penetrating_method
-        self.RESULT.attrs['Roughness_method'] = roughness_method
-        self.RESULT.attrs['Saturation_water_vapour_method'] = saturation_water_vapour_method
+        self.RESULT.attrs['Time_step_input_file_seconds'] = self.dt
+        self.RESULT.attrs['Max_layers'] = self.max_layers
+        self.RESULT.attrs['Z_measurment_height'] = self.z
+        self.RESULT.attrs['Stability_correction'] = self.stability_correction
+        self.RESULT.attrs['Albedo_method'] = self.albedo_method
+        self.RESULT.attrs['Densification_method'] = self.densification_method
+        self.RESULT.attrs['Penetrating_method'] = self.penetrating_method
+        self.RESULT.attrs['Roughness_method'] = self.roughness_method
+        self.RESULT.attrs['Saturation_water_vapour_method'] = self.saturation_water_vapour_method
 
-        self.RESULT.attrs['Initial_snowheight'] = initial_snowheight_constant
-        self.RESULT.attrs['Initial_snow_layer_heights'] = initial_snow_layer_heights
-        self.RESULT.attrs['Initial_glacier_height'] = initial_glacier_height
-        self.RESULT.attrs['Initial_glacier_layer_heights'] = initial_glacier_layer_heights
-        self.RESULT.attrs['Initial_top_density_snowpack'] = initial_top_density_snowpack
-        self.RESULT.attrs['Initial_bottom_density_snowpack'] = initial_bottom_density_snowpack
-        self.RESULT.attrs['Temperature_bottom'] = temperature_bottom
-        self.RESULT.attrs['Const_init_temp'] = const_init_temp
+        self.RESULT.attrs['Initial_snowheight'] = self.initial_snowheight_constant
+        self.RESULT.attrs['Initial_snow_layer_heights'] = self.initial_snow_layer_heights
+        self.RESULT.attrs['Initial_glacier_height'] = self.initial_glacier_height
+        self.RESULT.attrs['Initial_glacier_layer_heights'] = self.initial_glacier_layer_heights
+        self.RESULT.attrs['Initial_top_density_snowpack'] = self.initial_top_density_snowpack
+        self.RESULT.attrs['Initial_bottom_density_snowpack'] = self.initial_bottom_density_snowpack
+        self.RESULT.attrs['Temperature_bottom'] = self.temperature_bottom
+        self.RESULT.attrs['Const_init_temp'] = self.const_init_temp
 
-        self.RESULT.attrs['Center_snow_transfer_function'] = center_snow_transfer_function
-        self.RESULT.attrs['Spread_snow_transfer_function'] = spread_snow_transfer_function
-        self.RESULT.attrs['Multiplication_factor_for_RRR_or_SNOWFALL'] = mult_factor_RRR
-        self.RESULT.attrs['Minimum_snow_layer_height'] = minimum_snow_layer_height
-        self.RESULT.attrs['Minimum_snowfall'] = minimum_snowfall
+        self.RESULT.attrs['Center_snow_transfer_function'] = self.center_snow_transfer_function
+        self.RESULT.attrs['Spread_snow_transfer_function'] = self.spread_snow_transfer_function
+        self.RESULT.attrs['Multiplication_factor_for_RRR_or_SNOWFALL'] = self.mult_factor_RRR
+        self.RESULT.attrs['Minimum_snow_layer_height'] = self.minimum_snow_layer_height
+        self.RESULT.attrs['Minimum_snowfall'] = self.minimum_snowfall
 
-        self.RESULT.attrs['Remesh_method'] = remesh_method
-        self.RESULT.attrs['First_layer_height_log_profile'] = first_layer_height
-        self.RESULT.attrs['Layer_stretching_log_profile'] = layer_stretching
+        self.RESULT.attrs['Remesh_method'] = self.remesh_method
+        self.RESULT.attrs['First_layer_height_log_profile'] = self.first_layer_height
+        self.RESULT.attrs['Layer_stretching_log_profile'] = self.layer_stretching
 
-        self.RESULT.attrs['Merge_max'] = merge_max
-        self.RESULT.attrs['Layer_stretching_log_profile'] = layer_stretching
-        self.RESULT.attrs['Density_threshold_merging'] = density_threshold_merging
-        self.RESULT.attrs['Temperature_threshold_merging'] = temperature_threshold_merging
+        self.RESULT.attrs['Merge_max'] = self.merge_max
+        self.RESULT.attrs['Layer_stretching_log_profile'] = self.layer_stretching
+        self.RESULT.attrs['Density_threshold_merging'] = self.density_threshold_merging
+        self.RESULT.attrs['Temperature_threshold_merging'] = self.temperature_threshold_merging
 
-        self.RESULT.attrs['Density_fresh_snow'] = constant_density
-        self.RESULT.attrs['Albedo_fresh_snow'] = albedo_fresh_snow
-        self.RESULT.attrs['Albedo_firn'] = albedo_firn
-        self.RESULT.attrs['Albedo_ice'] = albedo_ice
-        self.RESULT.attrs['Albedo_mod_snow_aging'] = albedo_mod_snow_aging
-        self.RESULT.attrs['Albedo_mod_snow_depth'] = albedo_mod_snow_depth
-        self.RESULT.attrs['Roughness_fresh_snow'] = roughness_fresh_snow
-        self.RESULT.attrs['Roughness_ice'] = roughness_ice
-        self.RESULT.attrs['Roughness_firn'] = roughness_firn
-        self.RESULT.attrs['Aging_factor_roughness'] = aging_factor_roughness
-        self.RESULT.attrs['Snow_ice_threshold'] = snow_ice_threshold
+        self.RESULT.attrs['Density_fresh_snow'] = self.constant_density
+        self.RESULT.attrs['Albedo_fresh_snow'] = self.albedo_fresh_snow
+        self.RESULT.attrs['Albedo_firn'] = self.albedo_firn
+        self.RESULT.attrs['Albedo_ice'] = self.albedo_ice
+        self.RESULT.attrs['Albedo_mod_snow_aging'] = self.albedo_mod_snow_aging
+        self.RESULT.attrs['Albedo_mod_snow_depth'] = self.albedo_mod_snow_depth
+        self.RESULT.attrs['Roughness_fresh_snow'] = self.roughness_fresh_snow
+        self.RESULT.attrs['Roughness_ice'] = self.roughness_ice
+        self.RESULT.attrs['Roughness_firn'] = self.roughness_firn
+        self.RESULT.attrs['Aging_factor_roughness'] = self.aging_factor_roughness
+        self.RESULT.attrs['Snow_ice_threshold'] = self.snow_ice_threshold
 
-        self.RESULT.attrs['lat_heat_melting'] = lat_heat_melting
-        self.RESULT.attrs['lat_heat_vaporize'] = lat_heat_vaporize
-        self.RESULT.attrs['lat_heat_sublimation'] = lat_heat_sublimation
-        self.RESULT.attrs['spec_heat_air'] = spec_heat_air
-        self.RESULT.attrs['spec_heat_ice'] = spec_heat_ice
-        self.RESULT.attrs['spec_heat_water'] = spec_heat_water
-        self.RESULT.attrs['k_i'] = k_i
-        self.RESULT.attrs['k_w'] = k_w
-        self.RESULT.attrs['k_a'] = k_a
-        self.RESULT.attrs['water_density'] = water_density
-        self.RESULT.attrs['ice_density'] = ice_density
-        self.RESULT.attrs['air_density'] = air_density
-        self.RESULT.attrs['sigma'] = sigma
-        self.RESULT.attrs['zero_temperature'] = zero_temperature
-        self.RESULT.attrs['Surface_emission_coeff'] = surface_emission_coeff
+        self.RESULT.attrs['lat_heat_melting'] = self.lat_heat_melting
+        self.RESULT.attrs['lat_heat_vaporize'] = self.lat_heat_vaporize
+        self.RESULT.attrs['lat_heat_sublimation'] = self.lat_heat_sublimation
+        self.RESULT.attrs['spec_heat_air'] = self.spec_heat_air
+        self.RESULT.attrs['spec_heat_ice'] = self.spec_heat_ice
+        self.RESULT.attrs['spec_heat_water'] = self.spec_heat_water
+        self.RESULT.attrs['k_i'] = self.k_i
+        self.RESULT.attrs['k_w'] = self.k_w
+        self.RESULT.attrs['k_a'] = self.k_a
+        self.RESULT.attrs['water_density'] = self.water_density
+        self.RESULT.attrs['ice_density'] = self.ice_density
+        self.RESULT.attrs['air_density'] = self.air_density
+        self.RESULT.attrs['sigma'] = self.sigma
+        self.RESULT.attrs['zero_temperature'] = self.zero_temperature
+        self.RESULT.attrs['Surface_emission_coeff'] = self.surface_emission_coeff
 
         # Variables given by the input dataset
         self.add_variable_along_latlon(self.RESULT, self.DATA.HGT, 'HGT', 'm', 'Elevation')
@@ -397,25 +478,25 @@ class IOClass:
         if ('MOL' in self.internal):
             self.MOL = np.full((self.time,self.ny,self.nx), np.nan)
 
-        if full_field:
+        if self.full_field:
             if ('HEIGHT' in self.full):
-                self.LAYER_HEIGHT = np.full((self.time,self.ny,self.nx,max_layers), np.nan)
+                self.LAYER_HEIGHT = np.full((self.time,self.ny,self.nx,self.max_layers), np.nan)
             if ('RHO' in self.full):
-                self.LAYER_RHO = np.full((self.time,self.ny,self.nx,max_layers), np.nan)
+                self.LAYER_RHO = np.full((self.time,self.ny,self.nx,self.max_layers), np.nan)
             if ('T' in self.full):
-                self.LAYER_T = np.full((self.time,self.ny,self.nx,max_layers), np.nan)
+                self.LAYER_T = np.full((self.time,self.ny,self.nx,self.max_layers), np.nan)
             if ('LWC' in self.full):
-                self.LAYER_LWC = np.full((self.time,self.ny,self.nx,max_layers), np.nan)
+                self.LAYER_LWC = np.full((self.time,self.ny,self.nx,self.max_layers), np.nan)
             if ('CC' in self.full):
-                self.LAYER_CC = np.full((self.time,self.ny,self.nx,max_layers), np.nan)
+                self.LAYER_CC = np.full((self.time,self.ny,self.nx,self.max_layers), np.nan)
             if ('POROSITY' in self.full):
-                self.LAYER_POROSITY = np.full((self.time,self.ny,self.nx,max_layers), np.nan)
+                self.LAYER_POROSITY = np.full((self.time,self.ny,self.nx,self.max_layers), np.nan)
             if ('ICE_FRACTION' in self.full):
-                self.LAYER_ICE_FRACTION = np.full((self.time,self.ny,self.nx,max_layers), np.nan)
+                self.LAYER_ICE_FRACTION = np.full((self.time,self.ny,self.nx,self.max_layers), np.nan)
             if ('IRREDUCIBLE_WATER' in self.full):
-                self.LAYER_IRREDUCIBLE_WATER = np.full((self.time,self.ny,self.nx,max_layers), np.nan)
+                self.LAYER_IRREDUCIBLE_WATER = np.full((self.time,self.ny,self.nx,self.max_layers), np.nan)
             if ('REFREEZE' in self.full):
-                self.LAYER_REFREEZE = np.full((self.time,self.ny,self.nx,max_layers), np.nan)
+                self.LAYER_REFREEZE = np.full((self.time,self.ny,self.nx,self.max_layers), np.nan)
    
     
     #==============================================================================
@@ -484,7 +565,7 @@ class IOClass:
         if ('MOL' in self.internal):
             self.MOL[:,y,x] = local_MOL 
 
-        if full_field:
+        if self.full_field:
             if ('HEIGHT' in self.full):
                 self.LAYER_HEIGHT[:,y,x,:] = local_LAYER_HEIGHT 
             if ('RHO' in self.full):
@@ -565,7 +646,7 @@ class IOClass:
         if ('MOL' in self.internal):
             self.add_variable_along_latlontime(self.RESULT, self.MOL, 'MOL', '', 'Monin Obukhov length') 
 	            
-        if full_field:
+        if self.full_field:
             if ('HEIGHT' in self.full):
                 self.add_variable_along_latlonlayertime(self.RESULT, self.LAYER_HEIGHT, 'LAYER_HEIGHT', 'm', 'Layer height') 
             if ('RHO' in self.full):
@@ -600,7 +681,7 @@ class IOClass:
         self.RESTART.coords['time'] = self.DATA.coords['time'][-1]
         self.RESTART.coords['lat'] = self.DATA.coords['lat']
         self.RESTART.coords['lon'] = self.DATA.coords['lon']
-        self.RESTART.coords['layer'] = np.arange(max_layers)
+        self.RESTART.coords['layer'] = np.arange(self.max_layers)
     
         print('Restart ddataset ... ok \n')
         print('--------------------------------------------------------------\n')
@@ -618,11 +699,11 @@ class IOClass:
         self.RES_NEWSNOWHEIGHT = np.full((self.ny, self.nx), np.nan)
         self.RES_NEWSNOWTIMESTAMP = np.full((self.ny, self.nx), np.nan)
         self.RES_OLDSNOWTIMESTAMP = np.full((self.ny, self.nx), np.nan)
-        self.RES_LAYER_HEIGHT = np.full((self.ny,self.nx,max_layers), np.nan)
-        self.RES_LAYER_RHO = np.full((self.ny,self.nx,max_layers), np.nan)
-        self.RES_LAYER_T = np.full((self.ny,self.nx,max_layers), np.nan)
-        self.RES_LAYER_LWC = np.full((self.ny,self.nx,max_layers), np.nan)
-        self.RES_LAYER_IF = np.full((self.ny,self.nx,max_layers), np.nan)
+        self.RES_LAYER_HEIGHT = np.full((self.ny,self.nx,self.max_layers), np.nan)
+        self.RES_LAYER_RHO = np.full((self.ny,self.nx,self.max_layers), np.nan)
+        self.RES_LAYER_T = np.full((self.ny,self.nx,self.max_layers), np.nan)
+        self.RES_LAYER_LWC = np.full((self.ny,self.nx,self.max_layers), np.nan)
+        self.RES_LAYER_IF = np.full((self.ny,self.nx,self.max_layers), np.nan)
 
 
     #----------------------------------------------
@@ -642,7 +723,7 @@ class IOClass:
         self.RESTART.coords['time'] = self.DATA.coords['time'][-1]
         self.RESTART.coords['lat'] = self.DATA.coords['lat']
         self.RESTART.coords['lon'] = self.DATA.coords['lon']
-        self.RESTART.coords['layer'] = np.arange(max_layers)
+        self.RESTART.coords['layer'] = np.arange(self.max_layers)
         
         self.add_variable_along_scalar(self.RESTART, np.full((1), np.nan), 'NLAYERS', '-', 'Number of layers')
         self.add_variable_along_scalar(self.RESTART, np.full((1), np.nan), 'NEWSNOWHEIGHT', 'm .w.e', 'New snow height')
@@ -778,7 +859,7 @@ class IOClass:
 
     def add_variable_along_latlon(self, ds, var, name, units, long_name):
         """ This function self.adds missing variables to the self.DATA class """
-        ds[name] = ((northing,easting), var)
+        ds[name] = ((self.northing,self.easting), var)
         ds[name].attrs['units'] = units
         ds[name].attrs['long_name'] = long_name
         ds[name].encoding['_FillValue'] = -9999
@@ -794,7 +875,7 @@ class IOClass:
     
     def add_variable_along_latlontime(self, ds, var, name, units, long_name):
         """ This function self.adds missing variables to the self.DATA class """
-        ds[name] = (('time',northing,easting), var)
+        ds[name] = (('time',self.northing,self.easting), var)
         ds[name].attrs['units'] = units
         ds[name].attrs['long_name'] = long_name
         ds[name].encoding['_FillValue'] = -9999
@@ -802,7 +883,7 @@ class IOClass:
     
     def add_variable_along_latlonlayertime(self, ds, var, name, units, long_name):
         """ This function self.adds missing variables to the self.DATA class """
-        ds[name] = (('time',northing,easting,'layer'), var)
+        ds[name] = (('time',self.northing,self.easting,'layer'), var)
         ds[name].attrs['units'] = units
         ds[name].attrs['long_name'] = long_name
         ds[name].encoding['_FillValue'] = -9999
@@ -810,7 +891,7 @@ class IOClass:
     
     def add_variable_along_latlonlayer(self, ds, var, name, units, long_name):
         """ This function self.adds missing variables to the self.DATA class """
-        ds[name] = ((northing,easting,'layer'), var)
+        ds[name] = ((self.northing,self.easting,'layer'), var)
         ds[name].attrs['units'] = units
         ds[name].attrs['long_name'] = long_name
         ds[name].encoding['_FillValue'] = -9999
