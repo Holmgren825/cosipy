@@ -81,5 +81,13 @@ def init_constants(config):
     return constants
 
 
-config = init_config()
-constants = init_constants(config)
+def init_main_dict():
+    # We merge the two dicts for simpler use throughout the model.
+    config = init_config()
+    constants = init_constants(config)
+    NAMELIST = {**config, **constants}
+
+    return NAMELIST
+
+
+NAMELIST = init_main_dict()
