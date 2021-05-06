@@ -1,24 +1,32 @@
 import numpy as np
-from constants import albedo_method, albedo_fresh_snow, albedo_firn, albedo_ice, \
-                      albedo_mod_snow_aging, albedo_mod_snow_depth, snow_ice_threshold
 
-def updateAlbedo(GRID):
+
+def updateAlbedo(GRID, NAMELIST):
     """ This methods updates the albedo """
+    # Unpack albedo method from the namelist.
     albedo_allowed = ['Oerlemans98']
-    if albedo_method == 'Oerlemans98':
-        alphaMod = method_Oerlemans(GRID)
+    if NAMELIST['albedo_method'] == 'Oerlemans98':
+        alphaMod = method_Oerlemans(GRID, NAMELIST)
 
     else:
-        raise ValueError("Albedo method = \"{:s}\" is not allowed, must be one of {:s}".format(albedo_method, ", ".join(albedo_allowed)))
+        raise ValueError("Albedo method = \"{:s}\" is not allowed, must be one of {:s}".format(NAMELIST['albedo_method'], ", ".join(albedo_allowed)))
 
     return alphaMod
 
 
-def method_Oerlemans(GRID):
+def method_Oerlemans(GRID, NAMELIST):
+
+    # Unpack the namelist.
+    albedo_firn = NAMELIST['albedo_firn']
+    albedo_fresh_snow = NAMELIST['albedo_fresh_snow']
+    albedo_ice = NAMELIST['albedo_ice']
+    albedo_mod_snow_aging = NAMELIST['albedo_mod_snow_aging']
+    albedo_mod_snow_depth = NAMELIST['albedo_mod_snow_depth']
+    snow_ice_threshold = NAMELIST['snow_ice_threshold']
 
     # Get hours since the last snowfall
     # First get fresh snow properties (height and timestamp)
-    fresh_snow_height, fresh_snow_timestamp, _  = GRID.get_fresh_snow_props()
+    fresh_snow_height, fresh_snow_timestamp, _ = GRID.get_fresh_snow_props()
     
     # Get time difference between last snowfall and now
     hours_since_snowfall = (fresh_snow_timestamp)/3600.0
@@ -27,7 +35,7 @@ def method_Oerlemans(GRID):
     # to the old values of the underlying snowpack
     if (hours_since_snowfall<(albedo_mod_snow_aging*24)) & (fresh_snow_height<0.0):
         GRID.set_fresh_snow_props_to_old_props()
-        fresh_snow_height, fresh_snow_timestamp, _  = GRID.get_fresh_snow_props()
+        fresh_snow_height, fresh_snow_timestamp, _ = GRID.get_fresh_snow_props()
         
         # Update time difference between last snowfall and now
         hours_since_snowfall = (fresh_snow_timestamp)/3600.0
