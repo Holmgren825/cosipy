@@ -4,7 +4,7 @@ and variables from constants.cfg and config.cfg and make
 their contents available as dictionaries.
 """
 from configobj import ConfigObj
-
+from numba import njit
 
 def init_config():
     # Read in the config.cfg file as an config object.
@@ -36,6 +36,10 @@ def init_config():
     # We do the logic here instead of in the config. Would be nice if this was
     # updated if a user later changes WRF. Requires an ordered dict, see OGGM
     # cfg.py. Basically an class extended from ordered dicts.
+    if config['workers'] == 'None':
+        config['workers'] = None
+    else:
+        config['workers'] = cp.as_int('workers')
 
     # Change coordinates if WRF
     if config['WRF']:
@@ -71,7 +75,8 @@ def init_constants(config):
             pass
         except ValueError:
             pass
-
+    # Some edge cases where we don't want float.
+    constants['max_layers'] = int(constants['max_layers'])
     # Some changes if using wrf. As for config, would be nice if this changed
     # automatically if changed during runtime.
     if config['WRF_X_CSPY']:

@@ -106,6 +106,7 @@ class IOClass:
         self.sigma = NAMELIST['sigma']
         self.zero_temperature = NAMELIST['zero_temperature']
         self.surface_emission_coeff = NAMELIST['surface_emission_coeff']
+        self.input_netcdf = NAMELIST['input_netcdf']
 
         # Initialize data
         self.DATA = DATA
@@ -213,7 +214,7 @@ class IOClass:
         """
     
         # Open input dataset
-        self.DATA = xr.open_dataset(os.path.join(self.data_path,'input',input_netcdf))
+        self.DATA = xr.open_dataset(os.path.join(self.data_path,'input',self.input_netcdf))
         self.DATA['time'] = np.sort(self.DATA['time'].values)
         start_interval=str(self.DATA.time.values[0])[0:16]
         end_interval = str(self.DATA.time.values[-1])[0:16]
@@ -309,7 +310,7 @@ class IOClass:
         self.RESULT.coords['lon'] = self.DATA.coords['lon']
 
         # Global attributes from config.py
-        self.RESULT.attrs['Start_from_restart_file'] = str(restart)
+        self.RESULT.attrs['Start_from_restart_file'] = str(self.restart)
         self.RESULT.attrs['Stake_evaluation'] = str(self.stake_evaluation)
         self.RESULT.attrs['WRF_simulation'] = str(self.WRF)
         self.RESULT.attrs['Compression_level'] = self.compression_level

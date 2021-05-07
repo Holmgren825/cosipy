@@ -39,3 +39,6 @@ def test_init_main_dict():
     assert cfg.NAMELIST['local_port'] == 8786
     assert type(cfg.NAMELIST['WRF']) == bool
     assert cfg.NAMELIST['eval_method'] == 'rmse'
+    assert (type(cfg.NAMELIST['workers']) == int) or\
+        (cfg.NAMELIST['workers'] is None)
+    assert type(cfg.NAMELIST['max_layers']) == int
