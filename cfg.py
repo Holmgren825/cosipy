@@ -4,7 +4,9 @@ and variables from constants.cfg and config.cfg and make
 their contents available as dictionaries.
 """
 from configobj import ConfigObj
-from numba import njit
+from numba import types
+from numba.typed import Dict
+
 
 def init_config():
     # Read in the config.cfg file as an config object.
@@ -84,6 +86,37 @@ def init_constants(config):
         constants['sfc_temperature_method'] = 'Newton'
 
     return constants
+
+
+def get_typed_dicts(NAMELIST):
+    '''Utility function used to split the namelist into typed numba dicts.'''
+
+    # Typed dict for all floats
+    d_float = Dict.empty(key_type=types.unicode_type,
+                         value_type=types.float64)
+    # Typed dict for all integers.
+    d_int = Dict.empty(key_type=types.unicode_type,
+                       value_type=types.intp)
+    # Typed dict for strings.
+    d_str = Dict.empty(key_type=types.unicode_type,
+                       value_type=types.unicode_type)
+    # Typed dict for booleans.
+    d_bool = Dict.empty(key_type=types.unicode_type,
+                        value_type=types.boolean)
+
+    # Loop over the NAMELIST and assign keys value pairs to the corresponding
+    # typed dict.
+    for k, v in NAMELIST.items():
+        if type(v) == float:
+            d_float[k] = v
+        elif type(v) == int:
+            d_int[k] = v
+        elif type(v) == str:
+            d_str[k] = v
+        elif type(v) == bool:
+            d_bool[k] = v
+
+    return d_float, d_int, d_str, d_bool
 
 
 def init_main_dict():

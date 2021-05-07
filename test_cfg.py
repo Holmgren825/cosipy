@@ -42,3 +42,14 @@ def test_init_main_dict():
     assert (type(cfg.NAMELIST['workers']) == int) or\
         (cfg.NAMELIST['workers'] is None)
     assert type(cfg.NAMELIST['max_layers']) == int
+
+
+def test_get_typed_dicts():
+    NAMELIST = cfg.NAMELIST
+    # Test that it actually runs
+    CONST, CONST_INT, PARAMS, CONF = cfg.get_typed_dicts(NAMELIST)
+    assert CONST['lat_heat_sublimation'] == 2.834e6
+    assert type(CONF['WRF']) == bool
+    assert PARAMS['eval_method'] == 'rmse'
+    # Concerning the types numba should complain if we try and set something of
+    # the wrong type in the dicts.
