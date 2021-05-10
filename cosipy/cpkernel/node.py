@@ -1,7 +1,7 @@
 import numpy as np
 
 from collections import OrderedDict
-from numba import float64  
+from numba import float64, types
 from numba.experimental import jitclass
 
 spec = OrderedDict()
@@ -10,6 +10,18 @@ spec['temperature'] = float64
 spec['liquid_water_content'] = float64     
 spec['ice_fraction'] = float64
 spec['refreeze'] = float64
+spec['thermal_conductivity_method'] = types.string
+spec['spec_heat_air'] = float64
+spec['spec_heat_ice'] = float64
+spec['spec_heat_water'] = float64
+spec['k_i'] = float64
+spec['k_w'] = float64
+spec['k_a'] = float64
+spec['water_density'] = float64
+spec['ice_density'] = float64
+spec['air_density'] = float64
+spec['zero_temperature'] = float64
+
 
 @jitclass(spec)
 class Node:
@@ -36,26 +48,25 @@ class Node:
 
     """
 
-    def __init__(self, height, snow_density, temperature, liquid_water_content, NAMELIST, ice_fraction=None):
+    def __init__(self, height, snow_density, temperature, liquid_water_content, CONST, PARAMS, ice_fraction=None):
 
         # Initialize state variables 
         self.height = height
         self.temperature = temperature
         self.liquid_water_content = liquid_water_content
-        # Unpack what we need from the namelist.
+        # Unpack what we need from CONST and PARAMS
         self.thermal_conductivity_method =\
-            NAMELIST['thermal_conductivity_method']
-        self.spec_heat_air = NAMELIST['spec_heat_air']
-        self.spec_heat_ice = NAMELIST['spec_heat_ice']
-        self.spec_heat_water = NAMELIST['spec_heat_water']
-        self.k_i = NAMELIST['k_i']
-        self.k_w = NAMELIST['k_w']
-        self.k_a = NAMELIST['k_a']
-        self.water_density = NAMELIST['water_density']
-        self.ice_density = NAMELIST['ice_density']
-        self.air_density = NAMELIST['air_density']
-        self.zero_temperature = NAMELIST['zero_temperature']
-        
+            PARAMS['thermal_conductivity_method']
+        self.spec_heat_air = CONST['spec_heat_air']
+        self.spec_heat_ice = CONST['spec_heat_ice']
+        self.spec_heat_water = CONST['spec_heat_water']
+        self.k_i = CONST['k_i']
+        self.k_w = CONST['k_w']
+        self.k_a = CONST['k_a']
+        self.water_density = CONST['water_density']
+        self.ice_density = CONST['ice_density']
+        self.air_density = CONST['air_density']
+        self.zero_temperature = CONST['zero_temperature']
         if ice_fraction is None:
             # Remove weight of air from density
             a = snow_density - (1-(snow_density/self.ice_density))*self.air_density
@@ -204,8 +215,9 @@ class Node:
             lam = self.get_layer_ice_fraction()*self.k_i + self.get_layer_air_porosity()*self.k_a + self.get_layer_liquid_water_content()*self.k_w
         elif self.thermal_conductivity_method == 'empirical':
             lam = 0.021 + 2.5 * np.power((self.get_layer_density()/1000),2)
-        else:
-            raise ValueError("Thermal conductivity method = \"{:s}\" is not allowed, must be one of {:s}".format(self.thermal_conductivity_method, ", ".join(methods_allowed)))
+        # else:
+        #     raise ValueError("Thermal conductivity method = \"{:s}\" is not allowed, must be one of {:s}".format(self.thermal_conductivity_method, ", ".join(methods_allowed)))
+        else: raise ValueError('Thermal conductivity method not allowed')
         return lam
 
     def get_layer_thermal_diffusivity(self):

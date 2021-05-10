@@ -13,6 +13,7 @@ from cosipy.modules.surfaceTemperature import update_surface_temperature
 
 from cosipy.cpkernel.init import init_snowpack, load_snowpack
 from cosipy.cpkernel.io import IOClass
+import cfg
 
 
 def cosipy_core(DATA, indY, indX, NAMELIST, GRID_RESTART=None, stake_names=None, stake_data=None):
@@ -39,7 +40,7 @@ def cosipy_core(DATA, indY, indX, NAMELIST, GRID_RESTART=None, stake_names=None,
 
     """
     
-    # Unpack the NAMELIST
+    # Unpack the NAMELIST, this is what cosipy_core needs directly.
     stake_evaluation = NAMELIST['stake_evaluation']
     WRF_X_CSPY = NAMELIST['WRF_X_CSPY']
     full_field = NAMELIST['full_field']
@@ -60,6 +61,12 @@ def cosipy_core(DATA, indY, indX, NAMELIST, GRID_RESTART=None, stake_names=None,
     water_density = NAMELIST['water_density']
     ice_density = NAMELIST['ice_density']
     zero_temperature = NAMELIST['zero_temperature']
+
+    # Call a function to unpack the namelist into typed numba dicts which we
+    # can pass along to any jitted classes/functions.
+    CONST, CONST_INT, PARAMS, CONF = cfg.get_typed_dicts(NAMELIST)
+    # CONF = cfg.CONF(CONST, PARAMS)
+
 
     # Replace values from constants.py if coupled
     if WRF_X_CSPY:
@@ -114,7 +121,7 @@ def cosipy_core(DATA, indY, indX, NAMELIST, GRID_RESTART=None, stake_names=None,
     # Initialize snowpack or load restart grid
     #--------------------------------------------
     if GRID_RESTART is None:
-        GRID = init_snowpack(DATA, NAMELIST)
+        GRID = init_snowpack(DATA, NAMELIST, CONST, PARAMS)
     else:
         GRID = load_snowpack(GRID_RESTART)
 
@@ -255,7 +262,7 @@ def cosipy_core(DATA, indY, indX, NAMELIST, GRID_RESTART=None, stake_names=None,
 
         # Penetrating SW radiation and subsurface melt
         if SWnet > 0.0:
-            subsurface_melt, G_penetrating = penetrating_radiation(GRID, SWnet, dt, NAMELIST)
+            subsurface_melt, G_penetrating = penetrating_radiation(GRID, SWnet, dt, NAMELIST, CONST)
         else:
             subsurface_melt = 0.0
             G_penetrating = 0.0
@@ -267,12 +274,12 @@ def cosipy_core(DATA, indY, indX, NAMELIST, GRID_RESTART=None, stake_names=None,
             # Find new surface temperature (LW is used from the input file)
             fun, surface_temperature, lw_radiation_in, lw_radiation_out, sensible_heat_flux, latent_heat_flux, \
                 ground_heat_flux, rain_heat_flux, sw_radiation_net, rho, Lv, MOL, Cs_t, Cs_q, q0, q2 \
-                = update_surface_temperature(GRID, dt, alpha, z, z0, T2[t], RH2[t], PRES[t], G_resid, U2[t], RAIN, SLOPE, LWin=LWin[t], NAMELIST)
+                = update_surface_temperature(GRID, dt, alpha, z, z0, T2[t], RH2[t], PRES[t], G_resid, U2[t], RAIN, SLOPE, CONST, PARAMS, LWin=LWin[t])
         else:
             # Find new surface temperature (LW is parametrized using cloud fraction)
             fun, surface_temperature, lw_radiation_in, lw_radiation_out, sensible_heat_flux, latent_heat_flux, \
                 ground_heat_flux, rain_heat_flux, sw_radiation_net, rho, Lv, MOL, Cs_t, Cs_q, q0, q2 \
-                = update_surface_temperature(GRID, dt, alpha, z, z0, T2[t], RH2[t], PRES[t], G_resid, U2[t], RAIN, SLOPE, N=N[t], NAMELIST)
+                = update_surface_temperature(GRID, dt, alpha, z, z0, T2[t], RH2[t], PRES[t], G_resid, U2[t], RAIN, SLOPE, CONST, PARAMS, N=N[t])
 
         #--------------------------------------------
         # Surface mass fluxes [m w.e.q.]
@@ -304,22 +311,22 @@ def cosipy_core(DATA, indY, indX, NAMELIST, GRID_RESTART=None, stake_names=None,
         #--------------------------------------------
         # Percolation
         #--------------------------------------------
-        Q  = percolation(GRID, melt + condensation + RAIN/1000.0 + lwc_from_melted_layers, dt, NAMELIST)
+        Q  = percolation(GRID, melt + condensation + RAIN/1000.0 + lwc_from_melted_layers, dt)
 
         #--------------------------------------------
         # Refreezing
         #--------------------------------------------
-        water_refreezed = refreezing(GRID, NAMELIST)
+        water_refreezed = refreezing(GRID, CONST)
 
         #--------------------------------------------
         # Solve the heat equation
         #--------------------------------------------
-        solveHeatEquation(GRID, dt, NAMELIST)
+        solveHeatEquation(GRID, dt)
 
         #--------------------------------------------
         # Calculate new density to densification
         #--------------------------------------------
-        densification(GRID, SLOPE, dt, NAMELIST)
+        densification(GRID, SLOPE, dt, NAMELIST, CONST)
 
         #--------------------------------------------
         # Calculate mass balance

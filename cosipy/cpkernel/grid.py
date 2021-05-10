@@ -9,6 +9,8 @@ from numba.experimental import jitclass
 node_type = Node.class_type.instance_type
 
 spec = OrderedDict()
+spec['CONST'] = types.DictType(types.unicode_type, types.float64)
+spec['PARAMS'] = types.DictType(types.unicode_type, types.unicode_type)
 spec['layer_heights'] = float64[:]
 spec['layer_densities'] = float64[:]
 spec['layer_temperatures'] = float64[:]
@@ -19,11 +21,21 @@ spec['new_snow_height'] = float64
 spec['new_snow_timestamp'] = float64
 spec['old_snow_timestamp'] = float64
 spec['grid'] = types.ListType(node_type)     
+spec['remesh_method'] = types.string
+spec['minimum_snow_layer_height'] = float64
+spec['first_layer_height'] = float64
+spec['layer_stretching'] = float64
+spec['merge_max'] = float64
+spec['density_threshold_merging'] = float64
+spec['temperature_threshold_merging'] = float64
+spec['snow_ice_threshold'] = float64
+spec['water_density'] = float64
+spec['ice_density'] = float64
 
 @jitclass(spec)
 class Grid:
 
-    def __init__(self,layer_heights, layer_densities, layer_temperatures, layer_liquid_water_content, NAMELIST, layer_ice_fraction=None,
+    def __init__(self,layer_heights, layer_densities, layer_temperatures, layer_liquid_water_content, CONST, PARAMS, layer_ice_fraction=None,
         new_snow_height=None, new_snow_timestamp=None, old_snow_timestamp=None):
         """ The Grid-class controls the numerical mesh. 
         
@@ -50,6 +62,10 @@ class Grid:
             Node : :py:class:`cosipy.cpkernel.grid` object
 
         """
+        # Set CONST and PARAMS and class attributes since we're gonna need them
+        # in a lot of the sub functions.
+        self.CONST = CONST
+        self.PARAMS = PARAMS
         # Set class variables
         self.layer_heights = layer_heights
         self.layer_densities = layer_densities
@@ -60,20 +76,20 @@ class Grid:
         # Number of total nodes
         self.number_nodes = len(layer_heights)
 
-        # Unpack the things we need from NAMELIST into class variables
-        self.minimum_snow_layer_height = NAMELIST['minimum_snow_layer_height']
-        self.remesh_method = NAMELIST['remesh_method']
-        self.first_layer_height = NAMELIST['first_layer_height']
-        self.layer_stretching = NAMELIST['layer_stretching']
-        self.merge_max = NAMELIST['merge_max']
-        self.density_threshold_merging = NAMELIST['density_threshold_merging']
+        # Unpack what we need from the dicts
+        # Params (strings)
+        self.remesh_method = PARAMS['remesh_method']
+        # Constants (floats)
+        self.minimum_snow_layer_height = CONST['minimum_snow_layer_height']
+        self.first_layer_height = CONST['first_layer_height']
+        self.layer_stretching = CONST['layer_stretching']
+        self.merge_max = CONST['merge_max']
+        self.density_threshold_merging = CONST['density_threshold_merging']
         self.temperature_threshold_merging =\
-            NAMELIST['temperature_threshold_merging']
-        self.snow_ice_threshold = NAMELIST['snow_ice_threshold']
-        self.water_density = NAMELIST['water_density']
-        self.ice_density = NAMELIST['ice_density']
-        
-
+            CONST['temperature_threshold_merging']
+        self.snow_ice_threshold = CONST['snow_ice_threshold']
+        self.water_density = CONST['water_density']
+        self.ice_density = CONST['ice_density']
         # Track the fresh snow layer (new_snow_height, new_snow_timestamp) as well as the old
         # snow layer age (old_snow_timestamp)
         if (new_snow_height is not None) and (new_snow_timestamp is not None) and \
@@ -89,7 +105,6 @@ class Grid:
 
         # Do the grid initialization
         self.grid = typed.List.empty_list(node_type)
-
         self.init_grid()
 
     
@@ -101,7 +116,7 @@ class Grid:
             if self.layer_ice_fraction is not None:
                 layer_IF = self.layer_ice_fraction[idxNode]
             self.grid.append(Node(self.layer_heights[idxNode], self.layer_densities[idxNode],
-                self.layer_temperatures[idxNode], self.layer_liquid_water_content[idxNode], layer_IF))
+                self.layer_temperatures[idxNode], self.layer_liquid_water_content[idxNode], self.CONST, self.PARAMS, layer_IF))
 
 
     def add_fresh_snow(self, height, density, temperature, liquid_water_content):
@@ -120,7 +135,7 @@ class Grid:
         """
 	
         # Add new node
-        self.grid.insert(0, Node(height, density, temperature, liquid_water_content, None))
+        self.grid.insert(0, Node(height, density, temperature, liquid_water_content, self.CONST, self.PARAMS, None))
 
         # Increase node counter
         self.number_nodes += 1
@@ -274,7 +289,7 @@ class Grid:
 
             # Update node properties
             self.update_node(idx, h0, T0, if0, lwc0)
-            self.grid.insert(idx+1, Node(h1, self.get_node_density(idx), T1, lwc1, if1))
+            self.grid.insert(idx+1, Node(h1, self.get_node_density(idx), T1, lwc1, self.CONST, self.PARAMS, if1))
 
             # Update node counter
             self.number_nodes += 1
@@ -394,7 +409,7 @@ class Grid:
                 Index of the node to be splitted.        
         """
         self.grid.insert(pos+1, Node(self.get_node_height(pos)/2.0, self.get_node_density(pos), self.get_node_temperature(pos), \
-                                     self.get_node_liquid_water_content(pos)/2.0, self.get_node_ice_fraction(pos)))
+                                     self.get_node_liquid_water_content(pos)/2.0, self.CONST, self.PARAMS, self.get_node_ice_fraction(pos)))
         self.update_node(pos, self.get_node_height(pos)/2.0, self.get_node_temperature(pos), \
                                      self.get_node_ice_fraction(pos), self.get_node_liquid_water_content(pos)/2.0)
 

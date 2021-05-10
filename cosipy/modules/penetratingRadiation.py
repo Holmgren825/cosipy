@@ -2,13 +2,13 @@ import numpy as np
 from numba import njit
 
 
-def penetrating_radiation(GRID, SWnet, dt, NAMELIST):
+def penetrating_radiation(GRID, SWnet, dt, NAMELIST, CONST):
 
     # Unpack the penetrating method.
     penetrating_method = NAMELIST['penetrating_method']
     penetrating_allowed = ['Bintanja95']
     if penetrating_method == 'Bintanja95':
-        subsurface_melt, Si = method_Bintanja(GRID, SWnet, dt, NAMELIST)
+        subsurface_melt, Si = method_Bintanja(GRID, SWnet, dt, CONST)
     else:
         raise ValueError("Penetrating method = \"{:s}\" is not allowed, must be one of {:s}".format(penetrating_method, ", ".join(penetrating_allowed)))
 
@@ -16,15 +16,15 @@ def penetrating_radiation(GRID, SWnet, dt, NAMELIST):
 
 
 @njit
-def method_Bintanja(GRID, SWnet, dt, NAMELIST):
+def method_Bintanja(GRID, SWnet, dt, CONST):
 
     # Unpack the needed variables from the namelist.
-    snow_ice_threshold = NAMELIST['snow_ice_threshold']
-    spec_heat_ice = NAMELIST['spec_heat_ice']
-    zero_temperature = NAMELIST['zero_temperature']
-    ice_density = NAMELIST['ice_density']
-    water_density = NAMELIST['water_density']
-    lat_heat_melting = NAMELIST['lat_heat_melting']
+    snow_ice_threshold = CONST['snow_ice_threshold']
+    spec_heat_ice = CONST['spec_heat_ice']
+    zero_temperature = CONST['zero_temperature']
+    ice_density = CONST['ice_density']
+    water_density = CONST['water_density']
+    lat_heat_melting = CONST['lat_heat_melting']
 
     # Total height of first layer
     total_height = 0.0

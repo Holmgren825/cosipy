@@ -2,7 +2,7 @@ import numpy as np
 from numba import njit
 
 
-def densification(GRID,SLOPE,dt, NAMELIST):
+def densification(GRID,SLOPE,dt, NAMELIST, CONST):
     """ Densification of the snowpack
     Args:
         GRID    ::  GRID-Structure
@@ -12,25 +12,25 @@ def densification(GRID,SLOPE,dt, NAMELIST):
     densification_allowed = ['Boone', 'Vionnet', 'empirical', 'constant']
     densification_method = NAMELIST['densification_method']
     if densification_method == 'Boone':
-        method_Boone(GRID,SLOPE,dt, NAMELIST)
+        method_Boone(GRID,SLOPE,dt, CONST)
     elif densification_method == 'Vionnet':
-        method_Vionnet(GRID,SLOPE,dt, NAMELIST)
+        method_Vionnet(GRID,SLOPE,dt, CONST)
     elif densification_method == 'empirical':
-        method_empirical(GRID,SLOPE,dt, NAMELIST)
+        method_empirical(GRID,SLOPE,dt, CONST)
     elif densification_method == 'constant':
         pass
     else:
         raise ValueError("Densification method = \"{:s}\" is not allowed, must be one of {:s}".format(densification_method, ", ".join(densification_allowed)))
 
 @njit
-def method_Boone(GRID,SLOPE,dt, NAMELIST):
+def method_Boone(GRID,SLOPE,dt, CONST):
     """ Description: Densification through overburden pressure
         after Essery et al. 2013
     """
     # Unpack what we need from the namelist.
-    snow_ice_threshold = NAMELIST['snow_ice_threshold']
-    minimum_snow_layer_height = NAMELIST['minimum_snow_layer_height']
-    zero_temperature = NAMELIST['zero_temperature']
+    snow_ice_threshold = CONST['snow_ice_threshold']
+    minimum_snow_layer_height = CONST['minimum_snow_layer_height']
+    zero_temperature = CONST['zero_temperature']
 
     # Constants
     c1 = 2.8e-6

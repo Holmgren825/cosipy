@@ -57,6 +57,7 @@ def main():
     slurm_use = NAMELIST['slurm_use']
     workers = NAMELIST['workers']
     local_port = NAMELIST['local_port']
+    output_netcdf = NAMELIST['output_netcdf']
 
     #------------------------------------------
     # Create input and output dataset

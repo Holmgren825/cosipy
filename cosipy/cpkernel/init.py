@@ -2,7 +2,7 @@ import sys
 import numpy as np
 from cosipy.cpkernel.grid import *
 
-def init_snowpack(DATA, NAMELIST):
+def init_snowpack(DATA, NAMELIST, CONST, PARAMS):
     ''' INITIALIZATION '''
 
     # Unpack what we need from the namelist.
@@ -15,7 +15,6 @@ def init_snowpack(DATA, NAMELIST):
         NAMELIST['initial_bottom_density_snowpack']
     temperature_bottom = NAMELIST['temperature_bottom']
     ice_density = NAMELIST['ice_density']
-
 
     ##--------------------------------------
     ## Check for WRF data
@@ -71,8 +70,8 @@ def init_snowpack(DATA, NAMELIST):
 	
     # Initialize grid, the grid class contains all relevant grid information
     GRID = Grid(np.array(layer_heights, dtype=np.float64), np.array(layer_densities, dtype=np.float64), 
-                np.array(layer_T, dtype=np.float64), np.array(layer_liquid_water, dtype=np.float64), NAMELIST,
-                None, None, None, None)
+                np.array(layer_T, dtype=np.float64), np.array(layer_liquid_water, dtype=np.float64),
+                CONST, PARAMS, None, None, None, None)
     
     return GRID
 
